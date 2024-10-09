@@ -43,10 +43,44 @@ void disableRawMode(void){
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1)
         crash("tcsetattr");
 }
+
+char readKeypress(){
+    int kread;
+    char ch;
+    while ((kread = read(STDIN_FILENO, &ch, 1)) != 1){
+        //EAGAIN is returned after timout hence we ignore it as an error
+        if (kread == -1 && errno != EAGAIN)
+            crash("read");
+    }
+    return ch;
+}
+
+int getCursorPos(int *rows, int *cols){
+    char buffer[32];
+    unsigned int x = 0;
+
+    if (write(STDOUT_FILENO, "\x1b[6n",4) != 4)
+        return -1;
+
+    while(x < sizeof(buffer) - 1){
+        if (read(STDIN_FILENO, &buffer[x], 1) != 1)
+            break;
+        if (buffer[x] == 'R')
+            break;
+        x++;
+    }
+
+    buffer[x] = '\0';
+
+    if (buffer[0] != '\x1b' || buffer[1] != '[') return -1;
+    if (sscanf(&buffer[2], "%d;%d", rows, cols) != 2) return -1;
+
+    return 0;
+}
 int getWindowSize(int *rows, int *cols){
     struct windowSize ws;
 
-    if (1 || ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0){
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0){
         if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12) 
             return -1;
 
@@ -95,44 +129,15 @@ void enableRawMode(void){
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1)
         crash("tcsetattr");
 }
-int getCursorPos(int *rows, int *cols){
-    char buffer[32];
-    unsigned int x = 0;
 
-    if (write(STDOUT_FILENO, "\x1b[6n]",4) != 4)
-        return -1;
-
-    while(x < sizeof(buffer)-1){
-        if (read(STDOUT_FILENO, &buffer[x], 1) != 1)
-            break;
-        if (buffer[x] == 'R')
-            break;
-        x++;
-    }
-
-    buffer[x]='\0';
-    char ch;
-
-    printf("\r\n&buffer[1]: '%s'\r\n", &buffer[1]);
-    
-    readKeypress();
-    return -1;
-}
-char readKeypress(){
-    int kread;
-    char ch;
-    while ((kread = read(STDIN_FILENO, &ch, 1)) != 1){
-        //EAGAIN is returned after timout hence we ignore it as an error
-        if (kread == -1 && errno != EAGAIN)
-            crash("read");
-    }
-    return ch;
-}
 /***-------------- OUTPUT ---------------***/
 void drawRows(){
     int y;
     for (y = 0; y < E.screenrows; y++){
         write(STDOUT_FILENO,"~\r\n",3);
+    }
+    if (y < E.screenrows - 1){
+        write(STDOUT_FILENO, "\r\n", 2);
     }
 }
 
