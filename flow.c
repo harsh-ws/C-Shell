@@ -50,10 +50,9 @@ int getWindowSize(int *rows, int *cols){
         if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12) 
             return -1;
 
-        readKeypress();
-        
-        return -1;
-    } else {
+    return getCursorPos(rows, cols);
+    }
+    else{
         *cols = ws.ws_col;
         *rows = ws.ws_row;
         return 0;
@@ -96,7 +95,29 @@ void enableRawMode(void){
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1)
         crash("tcsetattr");
 }
+int getCursorPos(int *rows, int *cols){
+    char buffer[32];
+    unsigned int x = 0;
 
+    if (write(STDOUT_FILENO, "\x1b[6n]",4) != 4)
+        return -1;
+
+    while(x < sizeof(buffer)-1){
+        if (read(STDOUT_FILENO, &buffer[x], 1) != 1)
+            break;
+        if (buffer[x] == 'R')
+            break;
+        x++;
+    }
+
+    buffer[x]='\0';
+    char ch;
+
+    printf("\r\n&buffer[1]: '%s'\r\n", &buffer[1]);
+    
+    readKeypress();
+    return -1;
+}
 char readKeypress(){
     int kread;
     char ch;
