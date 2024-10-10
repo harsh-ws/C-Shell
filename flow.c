@@ -5,6 +5,7 @@
 #include "stdio.h"
 #include "ctype.h"
 #include "stdlib.h"
+#include <string.h>
 #include "errno.h"
 #include "sys/ioctl.h"
 
@@ -84,6 +85,8 @@ int getWindowSize(int *rows, int *cols){
         if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12) 
             return -1;
 
+    readKeypress();
+
     return getCursorPos(rows, cols);
     }
     else{
@@ -136,6 +139,9 @@ void drawRows(){
     for (y = 0; y < E.screenrows; y++){
         write(STDOUT_FILENO,"~\r\n",3);
     }
+
+// we  print a "\r\n" like on any other line, but this causes the terminal to scroll in 
+// order to make room for a new blank line
     if (y < E.screenrows - 1){
         write(STDOUT_FILENO, "\r\n", 2);
     }
@@ -167,6 +173,11 @@ void processKeypress(){
         break;
     }
 }
+/*** append buffer ***/
+struct abuf {
+  char *b;
+  int len;
+};
 
 /***-------------- INIT ---------------***/
 
